@@ -6,7 +6,7 @@ using CityChoir.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
-namespace CityChoir.Infrastructure.Repository;
+namespace CityChoir.Infrastructure.Services;
 
 public class JwtService : IJwtService
 {
@@ -23,7 +23,7 @@ public class JwtService : IJwtService
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role)
+            new Claim(ClaimTypes.Role, user.Role.ToString())
         };
 
         var key = new SymmetricSecurityKey(
