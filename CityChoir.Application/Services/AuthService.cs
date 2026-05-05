@@ -8,7 +8,9 @@ namespace CityChoir.Application.Services;
 
 public class AuthService : IAuthService
 {
-     private readonly IUserRepository _userRepo;
+    private const string ADMIN_EMAIL = "admin@citychoir.com";
+    
+    private readonly IUserRepository _userRepo;
     private readonly IEmailTokenRepository _tokenRepo;
     private readonly IJwtService _jwtService;
     private readonly IEmailService _emailService;
@@ -30,6 +32,10 @@ public class AuthService : IAuthService
         if (await _userRepo.ExistsByEmail(dto.Email))
             return ApiResponse<string>.FailureResponse("Email already exists");
 
+        var userRole = dto.Email.Equals(ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase) 
+            ? UserRole.SUPER_ADMIN 
+            : UserRole.MEMBER;
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -43,7 +49,7 @@ public class AuthService : IAuthService
             Email = dto.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             Part = dto.Part,
-            Role = UserRole.MEMBER,
+            Role = userRole,
             IsEmailVerified = false,
             CreatedAt = DateTime.UtcNow
         };

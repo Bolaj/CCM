@@ -5,6 +5,10 @@ using CityChoir.Infrastructure.Repository;
 using CityChoir.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using DotNetEnv;
+
+Env.Load();
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +69,8 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "The City Choir API v1");
     });
 }
+
+
 
 app.UseHttpsRedirection();
 

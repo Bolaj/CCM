@@ -7,3 +7,5 @@ riderModule.iml
 .idea/
 .vs/
 *.user
+.env
+.appsettings.json

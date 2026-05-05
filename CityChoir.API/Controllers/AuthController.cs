@@ -43,12 +43,12 @@ public class AuthController : ControllerBase
         return Ok(response);
     }
     [HttpPost("resend-verification")]
-    public async Task<IActionResult> ResendVerification([FromBody] string email)
+    public async Task<IActionResult> ResendVerification([FromBody] EmailDto dto)
     {
-        if (string.IsNullOrEmpty(email))
-            return BadRequest("Email is required");
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
 
-        var response = await _authService.ResendVerification(email);
+        var response = await _authService.ResendVerification(dto.Email);
         return Ok(response);
     }
 }
