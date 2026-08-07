@@ -1,11 +1,13 @@
 using CityChoir.Application.DTOs.Auth;
 using CityChoir.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CityChoir.API.Controllers;
 
 [ApiController]
 [Route("api/auth")]
+[AllowAnonymous] 
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -42,6 +44,7 @@ public class AuthController : ControllerBase
         var response = await _authService.VerifyEmail(token);
         return Ok(response);
     }
+
     [HttpPost("resend-verification")]
     public async Task<IActionResult> ResendVerification([FromBody] EmailDto dto)
     {
@@ -49,6 +52,26 @@ public class AuthController : ControllerBase
             return BadRequest(ModelState);
 
         var response = await _authService.ResendVerification(dto.Email);
+        return Ok(response);
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var response = await _authService.ForgotPassword(dto);
+        return Ok(response);
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var response = await _authService.ResetPassword(dto);
         return Ok(response);
     }
 }

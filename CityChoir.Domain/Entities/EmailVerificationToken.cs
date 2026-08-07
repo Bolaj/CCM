@@ -1,5 +1,7 @@
 namespace CityChoir.Domain.Entities;
 
+using CityChoir.Domain.Enums;
+
 public class EmailVerificationToken
 {
     public Guid Id { get; set; }
@@ -7,4 +9,5 @@ public class EmailVerificationToken
 
     public required string Token { get; set; }
     public DateTime ExpiryDate { get; set; }
+    public EmailTokenType TokenType { get; set; }
 }

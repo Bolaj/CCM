@@ -4,5 +4,6 @@ public enum ChoirPart
 {
     SOP,
     ALT,
-    TEN
+    TEN,
+    BASS
 }

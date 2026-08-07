@@ -4,6 +4,7 @@ using CityChoir.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CityChoir.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260518000035_RehearsalCreate")]
+    partial class RehearsalCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,37 +24,6 @@ namespace CityChoir.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
-
-            modelBuilder.Entity("CityChoir.Domain.Entities.Attendance", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("IsPresent")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime>("MarkedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("RehearsalId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RehearsalId");
-
-                    b.HasIndex("UserId", "RehearsalId")
-                        .IsUnique();
-
-                    b.ToTable("Attendances");
-                });
 
             modelBuilder.Entity("CityChoir.Domain.Entities.EmailVerificationToken", b =>
                 {
@@ -66,53 +38,12 @@ namespace CityChoir.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("TokenType")
-                        .HasColumnType("int");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("char(36)");
 
                     b.HasKey("Id");
 
                     b.ToTable("EmailVerificationTokens");
-                });
-
-            modelBuilder.Entity("CityChoir.Domain.Entities.Permission", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("DeclineReason")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("RehearsalId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RehearsalId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("CityChoir.Domain.Entities.User", b =>
@@ -211,44 +142,6 @@ namespace CityChoir.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Rehearsals");
-                });
-
-            modelBuilder.Entity("CityChoir.Domain.Entities.Attendance", b =>
-                {
-                    b.HasOne("Rehearsal", "Rehearsal")
-                        .WithMany()
-                        .HasForeignKey("RehearsalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CityChoir.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Rehearsal");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("CityChoir.Domain.Entities.Permission", b =>
-                {
-                    b.HasOne("Rehearsal", "Rehearsal")
-                        .WithMany()
-                        .HasForeignKey("RehearsalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CityChoir.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Rehearsal");
-
-                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }

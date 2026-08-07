@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.Text;
 using CityChoir.Application.Interfaces;
 using CityChoir.Application.Services;
 using CityChoir.Infrastructure.Data;
@@ -6,14 +8,72 @@ using CityChoir.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using DotNetEnv;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
 
 Env.Load();
-
 
 var builder = WebApplication.CreateBuilder(args);
 
 #region Services
 
+// 1. Authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty)
+        ),
+        NameClaimType = ClaimTypes.NameIdentifier,
+        RoleClaimType = ClaimTypes.Role
+    };
+
+        options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"Authentication failed: {context.Exception.Message}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var claims = context.Principal?.Claims
+                .Select(c => $"{c.Type}: {c.Value}");
+            Console.WriteLine("Token validated. Claims:");
+            foreach (var claim in claims ?? [])
+                Console.WriteLine($"  {claim}");
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            Console.WriteLine($"Challenge triggered: {context.Error} - {context.ErrorDescription}");
+            return Task.CompletedTask;
+        }
+    };
+});
+
+// 2. Authorization
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+// 3. Controllers
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -22,7 +82,7 @@ builder.Services.AddControllers()
         );
     });
 
-// Swagger
+// 4. Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -31,13 +91,32 @@ builder.Services.AddSwaggerGen(c =>
         Title = "The City Choir API",
         Version = "v1"
     });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your JWT token. Example: eyJhbGci..."
+    });
+
+    c.AddSecurityRequirement(document =>
+    {
+        var requirement = new OpenApiSecurityRequirement();
+        requirement.Add(
+            new OpenApiSecuritySchemeReference("Bearer"),
+            new List<string>()
+        );
+        return requirement;
+    });
 });
 
-// DbContext
+// 5. DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DBConnectionString");
-
     options.UseMySql(
         connectionString,
         ServerVersion.AutoDetect(connectionString)
@@ -50,14 +129,32 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IEmailTokenRepository, EmailTokenRepository>();
+builder.Services.AddScoped<IRehearsalRepository, RehearsalRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IRehearsalService, RehearsalService>();
+builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 
 #endregion
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+    var smtpConnected = await emailService.TestConnectionAsync();
+
+    if (smtpConnected)
+        Console.WriteLine("SMTP startup check passed.");
+    else
+        Console.WriteLine("SMTP startup check failed. Email delivery will be retried at send time.");
+}
 
 #region Middleware Pipeline
 
@@ -70,13 +167,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-
-
 app.UseHttpsRedirection();
-
+app.UseAuthentication();
 app.UseAuthorization();
-
-app.MapControllers(); 
+app.MapControllers();
 
 #endregion
 

@@ -9,7 +9,8 @@ namespace CityChoir.Application.Services;
 public class AuthService : IAuthService
 {
     private const string ADMIN_EMAIL = "admin@citychoir.com";
-    
+    private const string EMAIL_VERIFY_ROUTE = "/api/auth/verify-email?token={0}";
+    private const string PASSWORD_RESET_ROUTE = "/api/auth/reset-password?token={0}";
     private readonly IUserRepository _userRepo;
     private readonly IEmailTokenRepository _tokenRepo;
     private readonly IJwtService _jwtService;
@@ -32,8 +33,9 @@ public class AuthService : IAuthService
         if (await _userRepo.ExistsByEmail(dto.Email))
             return ApiResponse<string>.FailureResponse("Email already exists");
 
-        var userRole = dto.Email.Equals(ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase) 
-            ? UserRole.SUPER_ADMIN 
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        var userRole = normalizedEmail.Equals(ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase)
+            ? UserRole.SUPER_ADMIN
             : UserRole.MEMBER;
 
         var user = new User
@@ -46,7 +48,7 @@ public class AuthService : IAuthService
             Occupation = dto.Occupation,
             Gender = dto.Gender,
             PhoneNumber = dto.PhoneNumber,
-            Email = dto.Email,
+            Email = normalizedEmail,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             Part = dto.Part,
             Role = userRole,
@@ -61,12 +63,13 @@ public class AuthService : IAuthService
             Id = Guid.NewGuid(),
             UserId = user.Id,
             Token = Guid.NewGuid().ToString(),
-            ExpiryDate = DateTime.UtcNow.AddHours(24)
+            ExpiryDate = DateTime.UtcNow.AddHours(24),
+            TokenType = EmailTokenType.EmailVerification
         };
 
         await _tokenRepo.Add(token);
 
-        var link = $"http://localhost:5000/api/auth/verify-email?token={token.Token}";
+        var link = string.Format(EMAIL_VERIFY_ROUTE, token.Token);
 
         await _emailService.SendEmailAsync(
             user.Email,
@@ -110,7 +113,7 @@ public class AuthService : IAuthService
     {
         var record = await _tokenRepo.GetByToken(token);
 
-        if (record == null)
+        if (record == null || record.TokenType != EmailTokenType.EmailVerification)
             return ApiResponse<string>.FailureResponse("Invalid token");
 
         if (record.ExpiryDate < DateTime.UtcNow)
@@ -147,12 +150,13 @@ public class AuthService : IAuthService
             Id = Guid.NewGuid(),
             UserId = user.Id,
             Token = Guid.NewGuid().ToString(),
-            ExpiryDate = DateTime.UtcNow.AddHours(24)
+            ExpiryDate = DateTime.UtcNow.AddHours(24),
+            TokenType = EmailTokenType.EmailVerification
         };
 
         await _tokenRepo.Add(token);
 
-        var link = $"http://localhost:5000/api/auth/verify-email?token={token.Token}";
+        var link = string.Format(EMAIL_VERIFY_ROUTE, token.Token);
 
         await _emailService.SendEmailAsync(
             user.Email,
@@ -162,6 +166,65 @@ public class AuthService : IAuthService
 
         return ApiResponse<string>.SuccessResponse(
             "Verification email resent",
+            null
+        );
+    }
+
+    public async Task<ApiResponse<string>> ForgotPassword(ForgotPasswordRequestDto dto)
+    {
+        var user = await _userRepo.GetByEmail(dto.Email);
+
+        if (user == null)
+            return ApiResponse<string>.SuccessResponse(
+                "If an account with that email exists, a password reset link has been sent.",
+                null
+            );
+
+        var token = new EmailVerificationToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Token = Guid.NewGuid().ToString(),
+            ExpiryDate = DateTime.UtcNow.AddHours(1),
+            TokenType = EmailTokenType.PasswordReset
+        };
+
+        await _tokenRepo.Add(token);
+
+        var link = string.Format(PASSWORD_RESET_ROUTE, token.Token);
+
+        await _emailService.SendEmailAsync(
+            user.Email,
+            "Reset your password",
+            $"<p>Click <a href='{link}'>here</a> to reset your password.</p>"
+        );
+
+        return ApiResponse<string>.SuccessResponse(
+            "If an account with that email exists, a password reset link has been sent.",
+            null
+        );
+    }
+
+    public async Task<ApiResponse<string>> ResetPassword(ResetPasswordDto dto)
+    {
+        var record = await _tokenRepo.GetByToken(dto.Token);
+
+        if (record == null || record.TokenType != EmailTokenType.PasswordReset)
+            return ApiResponse<string>.FailureResponse("Invalid or expired reset token");
+
+        if (record.ExpiryDate < DateTime.UtcNow)
+            return ApiResponse<string>.FailureResponse("Reset token expired");
+
+        var user = await _userRepo.GetById(record.UserId);
+        if (user == null)
+            return ApiResponse<string>.FailureResponse("User not found");
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        await _userRepo.Update(user);
+        await _tokenRepo.Delete(record);
+
+        return ApiResponse<string>.SuccessResponse(
+            "Password reset successfully.",
             null
         );
     }
