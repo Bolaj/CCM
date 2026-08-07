@@ -5,12 +5,19 @@ using CityChoir.Domain.Enums;
 
 namespace CityChoir.Application.Services;
 
-public class PermissionService: IPermissionService
+public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permissionRepository;
-    public PermissionService(IPermissionRepository permissionRepository)
+    private readonly IUserRepository _userRepository;
+    private readonly IRehearsalRepository _rehearsalRepository;
+    private readonly IEmailService _emailService;
+
+    public PermissionService(IPermissionRepository permissionRepository, IUserRepository userRepository, IRehearsalRepository rehearsalRepository, IEmailService emailService)
     {
         _permissionRepository = permissionRepository;
+        _userRepository = userRepository;
+        _rehearsalRepository = rehearsalRepository;
+        _emailService = emailService;
     }
     public async Task<ApiResponse<IEnumerable<PermissionDto>>> GetAll()
     {
@@ -31,7 +38,7 @@ public class PermissionService: IPermissionService
 
         return ApiResponse<IEnumerable<PermissionDto>>.SuccessResponse("All Permission Requests:", dtos);
     }
-    
+
     public async Task<ApiResponse<PermissionDto>> GetById(Guid id)
     {
         var p = await _permissionRepository.GetById(id);
@@ -54,7 +61,7 @@ public class PermissionService: IPermissionService
 
         return ApiResponse<PermissionDto>.SuccessResponse("Permission Found for: ", dto);
     }
-    
+
     public async Task<ApiResponse<string>> Approve(Guid id)
     {
         var permission = await _permissionRepository.GetById(id);
@@ -93,13 +100,18 @@ public class PermissionService: IPermissionService
 
     public async Task<ApiResponse<string>> RequestPermission(CreatePermissionDto dto)
     {
-        if (!Guid.TryParse(dto.UserId, out var userId))
-            return ApiResponse<string>.FailureResponse("Invalid user id");
+        var user = await _userRepository.GetById(dto.UserId);
+        if (user == null)
+            return ApiResponse<string>.FailureResponse("User not found");
+
+        var rehearsal = await _rehearsalRepository.GetById(dto.RehearsalId);
+        if (rehearsal == null)
+            return ApiResponse<string>.FailureResponse("Rehearsal not found");
 
         var permission = new Domain.Entities.Permission
         {
             Id = Guid.NewGuid(),
-            UserId = userId,
+            UserId = dto.UserId,
             RehearsalId = dto.RehearsalId,
             Reason = dto.Reason,
             Status = PermissionStatus.PENDING,
@@ -108,9 +120,36 @@ public class PermissionService: IPermissionService
 
         await _permissionRepository.Add(permission);
 
-        return ApiResponse<string>.SuccessResponse("Permission requested", permission.Id.ToString());
-    }
+        await _emailService.SendEmailAsync(
+            user.Email,
+            "Permission Request Received",
+            $"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2196F3;">Permission Request Received ⏳</h2>
+            <p>Hi <strong>{user.FullName}</strong>,</p>
+            <p>Your permission request has been received and is currently <strong>pending review</strong>.</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Rehearsal</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{rehearsal.Name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Reason</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{dto.Reason}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Submitted At</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{permission.RequestedAt:dddd, MMMM dd yyyy HH:mm} UTC</td>
+                </tr>
+            </table>
+            <p>You will be notified once your request has been reviewed.</p>
+            <p style="color: #888; font-size: 12px;">CityChoir — This is an automated message, please do not reply.</p>
+        </div>
+        """
+        );
 
+        return ApiResponse<string>.SuccessResponse("Permission request submitted successfully", null);
+    }
     public async Task<ApiResponse<IEnumerable<PermissionDto>>> GetByUserId(Guid userId)
     {
         var permissions = await _permissionRepository.GetAll();

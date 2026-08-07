@@ -20,17 +20,16 @@ public class PermissionController : ControllerBase
 
     [HttpPost]
     [Authorize]
+    [HttpPost]
     public async Task<IActionResult> RequestPermission([FromBody] CreatePermissionDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        // Ensure caller is the same user as the request user
-        var callerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(callerId) || !callerId.Equals(dto.UserId, StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine($"[PermissionController] RequestPermission forbidden: caller {callerId} tried to request for {dto.UserId}");
-            return Forbid();
-        }
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim))
+            return Unauthorized("User not found in token");
+
+        dto.UserId = Guid.Parse(userIdClaim);
 
         var result = await _permissionService.RequestPermission(dto);
         return Ok(result);
