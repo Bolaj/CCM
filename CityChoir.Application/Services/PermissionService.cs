@@ -113,6 +113,9 @@ public class PermissionService : IPermissionService
         if (rehearsal == null)
             return ApiResponse<string>.FailureResponse("Rehearsal not found");
 
+        if (rehearsal.EndTime <= DateTime.UtcNow)
+            return ApiResponse<string>.FailureResponse("Permission cannot be requested for a rehearsal that has ended");
+
         var permission = new Domain.Entities.Permission
         {
             Id = Guid.NewGuid(),
