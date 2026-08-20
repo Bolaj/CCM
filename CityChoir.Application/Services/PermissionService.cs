@@ -69,11 +69,15 @@ public class PermissionService : IPermissionService
             return ApiResponse<string>.FailureResponse("Permission request not found");
 
         if (permission.Status != PermissionStatus.PENDING)
-            return ApiResponse<string>.FailureResponse("Your permission is pending. You will be notified upon approval");
+            return ApiResponse<string>.FailureResponse("Only pending requests can be approved");
 
         permission.Status = PermissionStatus.APPROVED;
         permission.ReviewedAt = DateTime.UtcNow;
-        await _permissionRepository.Update(permission);
+        var approved = await _permissionRepository.ApproveIfPending(permission);
+        if (!approved)
+            return ApiResponse<string>.FailureResponse("Only pending requests can be approved");
+
+        await SendReviewNotification(permission);
 
         return ApiResponse<string>.SuccessResponse("Permission approved", permission.Id.ToString());
     }
@@ -94,6 +98,7 @@ public class PermissionService : IPermissionService
         permission.DeclineReason = dto.DeclineReason;
         permission.ReviewedAt = DateTime.UtcNow;
         await _permissionRepository.Update(permission);
+        await SendReviewNotification(permission);
 
         return ApiResponse<string>.SuccessResponse("Permission declined", permission.Id.ToString());
     }
@@ -170,5 +175,28 @@ public class PermissionService : IPermissionService
         });
 
         return ApiResponse<IEnumerable<PermissionDto>>.SuccessResponse("User permissions fetched", dtos);
+    }
+
+    private async Task SendReviewNotification(Domain.Entities.Permission permission)
+    {
+        var isApproved = permission.Status == PermissionStatus.APPROVED;
+        var statusText = isApproved ? "approved" : "declined";
+        var statusColor = isApproved ? "#4CAF50" : "#F44336";
+        var declineReason = isApproved
+            ? string.Empty
+            : $"<p><strong>Reason:</strong> {permission.DeclineReason}</p>";
+
+        await _emailService.SendEmailAsync(
+            permission.User.Email,
+            $"Permission Request {statusText}",
+            $"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: {statusColor};">Permission Request {statusText}</h2>
+                <p>Hi <strong>{permission.User.FullName}</strong>,</p>
+                <p>Your permission request for <strong>{permission.Rehearsal.Name}</strong> has been <strong>{statusText}</strong>.</p>
+                {declineReason}
+                <p style="color: #888; font-size: 12px;">CityChoir — This is an automated message, please do not reply.</p>
+            </div>
+            """);
     }
 }

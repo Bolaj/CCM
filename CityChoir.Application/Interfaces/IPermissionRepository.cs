@@ -8,4 +8,5 @@ public interface IPermissionRepository
     Task<Permission?> GetById(Guid id);
     Task Add(Permission permission);
     Task Update(Permission permission);
+    Task<bool> ApproveIfPending(Permission permission);
 }

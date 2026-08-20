@@ -1,5 +1,6 @@
 using CityChoir.Application.Interfaces;
 using CityChoir.Domain.Entities;
+using CityChoir.Domain.Enums;
 using CityChoir.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,6 +38,17 @@ public class PermissionRepository : IPermissionRepository
     {
         _dbContext.Permissions.Update(permission);
         await _dbContext.SaveChangesAsync();
+    }
+
+    public async Task<bool> ApproveIfPending(Permission permission)
+    {
+        var updatedRows = await _dbContext.Permissions
+            .Where(p => p.Id == permission.Id && p.Status == PermissionStatus.PENDING)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(p => p.Status, PermissionStatus.APPROVED)
+                .SetProperty(p => p.ReviewedAt, permission.ReviewedAt));
+
+        return updatedRows == 1;
     }
     
 }
