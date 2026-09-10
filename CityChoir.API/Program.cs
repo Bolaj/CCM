@@ -11,6 +11,7 @@ using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 
 Env.Load();
 
@@ -165,9 +166,20 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "The City Choir API v1");
     });
+    app.MapScalarApiReference(options =>
+    {
+        options.AddDocument(
+            "v1",
+            "The City Choir API",
+            "/swagger/v1/swagger.json"
+        );
+    }).AllowAnonymous();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
