@@ -28,10 +28,10 @@ public class AuthService : IAuthService
         _emailService = emailService;
     }
 
-    public async Task<ApiResponse<string>> Register(RegisterDto dto)
+    public async Task<ApiResponse<RegistrationResponseDto>> Register(RegisterDto dto)
     {
         if (await _userRepo.ExistsByEmail(dto.Email))
-            return ApiResponse<string>.FailureResponse("Email already exists");
+            return ApiResponse<RegistrationResponseDto>.FailureResponse("Email already exists");
 
         var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
         var userRole = normalizedEmail.Equals(ADMIN_EMAIL, StringComparison.OrdinalIgnoreCase)
@@ -49,6 +49,7 @@ public class AuthService : IAuthService
             Gender = dto.Gender,
             PhoneNumber = dto.PhoneNumber,
             Email = normalizedEmail,
+            RegistrationNumber = string.Empty,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             Part = dto.Part,
             Role = userRole,
@@ -77,9 +78,12 @@ public class AuthService : IAuthService
             $"Click <a href='{link}'>here</a> to verify your email."
         );
 
-        return ApiResponse<string>.SuccessResponse(
+        return ApiResponse<RegistrationResponseDto>.SuccessResponse(
             "Registration successful. Check your email.",
-            null
+            new RegistrationResponseDto
+            {
+                RegistrationNumber = user.RegistrationNumber
+            }
         );
     }
 

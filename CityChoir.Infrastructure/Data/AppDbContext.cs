@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<Rehearsal> Rehearsals { get; set; }
     public DbSet<Permission> Permissions { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
+    public DbSet<RegistrationSequence> RegistrationSequences { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .Property(u => u.Part)
             .HasConversion<string>();
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.RegistrationNumber)
+            .IsUnique();
+
+        modelBuilder.Entity<RegistrationSequence>()
+            .HasKey(sequence => new { sequence.Year, sequence.Part });
 
         // Permission
         modelBuilder.Entity<Permission>()
