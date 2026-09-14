@@ -137,6 +137,11 @@ builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddSingleton<EmailNotificationWorker>();
+builder.Services.AddSingleton<IEmailNotificationQueue>(serviceProvider =>
+    serviceProvider.GetRequiredService<EmailNotificationWorker>());
+builder.Services.AddHostedService(serviceProvider =>
+    serviceProvider.GetRequiredService<EmailNotificationWorker>());
 builder.Services.AddSingleton<RehearsalNotificationWorker>();
 builder.Services.AddSingleton<IRehearsalNotificationQueue>(serviceProvider =>
     serviceProvider.GetRequiredService<RehearsalNotificationWorker>());

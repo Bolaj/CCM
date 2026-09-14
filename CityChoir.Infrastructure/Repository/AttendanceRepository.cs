@@ -47,6 +47,13 @@ public class AttendanceRepository : IAttendanceRepository
             .FirstOrDefaultAsync(a => a.UserId == userId && a.RehearsalId == rehearsalId);
     }
 
+    public async Task<IEnumerable<Attendance>> GetByUserId(Guid userId)
+    {
+        return await _context.Attendances
+            .Where(a => a.UserId == userId)
+            .ToListAsync();
+    }
+
     public async Task<int> GetTotalRehearsalsCount(AttendanceFilterDto filter)
     {
         var query = _context.Rehearsals.AsQueryable();

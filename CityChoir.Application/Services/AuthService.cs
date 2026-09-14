@@ -14,17 +14,20 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepo;
     private readonly IEmailTokenRepository _tokenRepo;
     private readonly IJwtService _jwtService;
+    private readonly IEmailNotificationQueue _emailQueue;
     private readonly IEmailService _emailService;
 
     public AuthService(
         IUserRepository userRepo,
         IEmailTokenRepository tokenRepo,
         IJwtService jwtService,
+        IEmailNotificationQueue emailQueue,
         IEmailService emailService)
     {
         _userRepo = userRepo;
         _tokenRepo = tokenRepo;
         _jwtService = jwtService;
+        _emailQueue = emailQueue;
         _emailService = emailService;
     }
 
@@ -72,11 +75,12 @@ public class AuthService : IAuthService
 
         var link = string.Format(EMAIL_VERIFY_ROUTE, token.Token);
 
-        await _emailService.SendEmailAsync(
-            user.Email,
-            "Verify your email",
-            $"Click <a href='{link}'>here</a> to verify your email."
-        );
+        await _emailQueue.EnqueueAsync(new EmailNotificationDto
+        {
+            To = user.Email,
+            Subject = "Verify your email",
+            Body = $"Click <a href='{link}'>here</a> to verify your email."
+        });
 
         return ApiResponse<RegistrationResponseDto>.SuccessResponse(
             "Registration successful. Check your email.",

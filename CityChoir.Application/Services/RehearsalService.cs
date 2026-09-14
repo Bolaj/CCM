@@ -8,13 +8,16 @@ namespace CityChoir.Application.Services;
 public class RehearsalService : IRehearsalService
 {
     private readonly IRehearsalRepository _rehearsalRepository;
+    private readonly IAttendanceRepository _attendanceRepository;
     private readonly IRehearsalNotificationQueue _notificationQueue;
 
     public RehearsalService(
         IRehearsalRepository rehearsalRepository,
+        IAttendanceRepository attendanceRepository,
         IRehearsalNotificationQueue notificationQueue)
     {
         _rehearsalRepository = rehearsalRepository;
+        _attendanceRepository = attendanceRepository;
         _notificationQueue = notificationQueue;
     }
 
@@ -31,6 +34,53 @@ public class RehearsalService : IRehearsalService
             return ApiResponse<Rehearsal?>.FailureResponse("Rehearsal not found");
 
         return ApiResponse<Rehearsal?>.SuccessResponse("Rehearsal fetched successfully", rehearsal);
+    }
+
+    public Task<ApiResponse<IEnumerable<UserRehearsalDto>>> GetUpcomingForUser(Guid userId)
+    {
+        return GetUserRehearsals(userId, upcoming: true);
+    }
+
+    public Task<ApiResponse<IEnumerable<UserRehearsalDto>>> GetHistoryForUser(Guid userId)
+    {
+        return GetUserRehearsals(userId, upcoming: false);
+    }
+
+    private async Task<ApiResponse<IEnumerable<UserRehearsalDto>>> GetUserRehearsals(
+        Guid userId,
+        bool upcoming)
+    {
+        var now = DateTime.UtcNow;
+        var rehearsals = await _rehearsalRepository.GetAll();
+        var attendances = (await _attendanceRepository.GetByUserId(userId))
+            .ToDictionary(attendance => attendance.RehearsalId);
+
+        var selected = rehearsals
+            .Where(rehearsal => upcoming
+                ? rehearsal.StartTime > now
+                : rehearsal.EndTime <= now)
+            .OrderBy(rehearsal => upcoming ? rehearsal.StartTime : rehearsal.EndTime)
+            .Select(rehearsal => new UserRehearsalDto
+            {
+                Id = rehearsal.Id,
+                Name = rehearsal.Name,
+                Description = rehearsal.Description,
+                Lat = rehearsal.Lat,
+                Lng = rehearsal.Lng,
+                RadiusMeters = rehearsal.RadiusMeters,
+                RehearsalDate = rehearsal.RehearsalDate,
+                StartTime = rehearsal.StartTime,
+                EndTime = rehearsal.EndTime,
+                HasAttended = attendances.TryGetValue(rehearsal.Id, out var attendance)
+                    && attendance.IsPresent,
+                AttendedAt = attendance?.MarkedAt
+            });
+
+        var message = upcoming
+            ? "Upcoming rehearsals fetched successfully"
+            : "Rehearsal history fetched successfully";
+
+        return ApiResponse<IEnumerable<UserRehearsalDto>>.SuccessResponse(message, selected);
     }
 
     public async Task<ApiResponse<string>> Create(CreateRehearsalDto rehearsalDto)

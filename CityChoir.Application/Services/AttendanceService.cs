@@ -30,7 +30,10 @@ public class AttendanceService : IAttendanceService
         // 1. find active rehearsal
         var rehearsals = await _rehearsalRepository.GetAll();
         var now = DateTime.UtcNow;
-        var active = rehearsals.FirstOrDefault(r => r.StartTime <= now && r.EndTime >= now);
+        var active = rehearsals.FirstOrDefault(r =>
+            r.RehearsalDate.Date == now.Date &&
+            r.StartTime <= now &&
+            r.EndTime >= now);
 
         if (active == null)
             return ApiResponse<string>.FailureResponse("No active rehearsal at this time");
