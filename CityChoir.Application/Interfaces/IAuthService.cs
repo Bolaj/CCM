@@ -5,7 +5,7 @@ namespace CityChoir.Application.Interfaces;
 
 public interface IAuthService
 {
-    Task<ApiResponse<string>> Register(RegisterDto dto);
+    Task<ApiResponse<RegistrationResponseDto>> Register(RegisterDto dto);
     Task<ApiResponse<AuthResponseDto>> Login(LoginDto dto);
     Task<ApiResponse<string>> VerifyEmail(string token);
     Task<ApiResponse<string>> ResendVerification(string email);

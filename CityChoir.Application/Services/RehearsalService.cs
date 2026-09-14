@@ -8,17 +8,14 @@ namespace CityChoir.Application.Services;
 public class RehearsalService : IRehearsalService
 {
     private readonly IRehearsalRepository _rehearsalRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly IEmailService _emailService;
+    private readonly IRehearsalNotificationQueue _notificationQueue;
 
     public RehearsalService(
         IRehearsalRepository rehearsalRepository,
-        IUserRepository userRepository,
-        IEmailService emailService)
+        IRehearsalNotificationQueue notificationQueue)
     {
         _rehearsalRepository = rehearsalRepository;
-        _userRepository = userRepository;
-        _emailService = emailService;
+        _notificationQueue = notificationQueue;
     }
 
     public async Task<ApiResponse<IEnumerable<Rehearsal>>> GetAll()
@@ -52,36 +49,17 @@ public class RehearsalService : IRehearsalService
 
         await _rehearsalRepository.Add(rehearsal);
 
-        var activeMembers = await _userRepository.GetActiveMembers();
-        var subject = "New rehearsal scheduled";
-        var body = $@"
-            <p>A new rehearsal has been created:</p>
-            <ul>
-                <li><strong>{rehearsal.Name}</strong></li>
-                <li>{rehearsal.Description}</li>
-                <li>When: {rehearsal.RehearsalDate:MMMM dd, yyyy}</li>
-                <li>Start: {rehearsal.StartTime:HH:mm}</li>
-                <li>End: {rehearsal.EndTime:HH:mm}</li>
-                <li>Location: {rehearsal.Lat}, {rehearsal.Lng} (radius {rehearsal.RadiusMeters} meters)</li>
-            </ul>
-        ";
-
-        // Send emails concurrently to avoid long sequential waits
-        var emailTasks = new List<Task>();
-        foreach (var member in activeMembers)
+        await _notificationQueue.EnqueueAsync(new RehearsalNotificationDto
         {
-            emailTasks.Add(_emailService.SendEmailAsync(member.Email, subject, body));
-        }
-
-        try
-        {
-            await Task.WhenAll(emailTasks);
-        }
-        catch
-        {
-            // If one or more emails fail, swallow exceptions to avoid failing the whole operation.
-            // Individual failures are logged by the EmailService fallback.
-        }
+            Name = rehearsal.Name,
+            Description = rehearsal.Description,
+            Lat = rehearsal.Lat,
+            Lng = rehearsal.Lng,
+            RadiusMeters = rehearsal.RadiusMeters,
+            StartTime = rehearsal.StartTime,
+            EndTime = rehearsal.EndTime,
+            RehearsalDate = rehearsal.RehearsalDate
+        });
 
         return ApiResponse<string>.SuccessResponse("Rehearsal created successfully", null);
     }

@@ -1,8 +1,8 @@
 using CityChoir.Application.Interfaces;
 using CityChoir.Domain.Entities;
 using CityChoir.Infrastructure.Data;
-using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace CityChoir.Infrastructure.Repository;
 
@@ -22,8 +22,25 @@ public class UserRepository : IUserRepository
 
     public async Task Add(User user)
     {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+
+        var year = DateTime.UtcNow.Year;
+        var part = user.Part.ToString().ToUpperInvariant();
+
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO RegistrationSequences (Year, Part, NextNumber)
+            VALUES ({year}, {part}, 1)
+            ON DUPLICATE KEY UPDATE NextNumber = NextNumber + 1
+            """);
+
+        var sequence = await _dbContext.RegistrationSequences
+            .SingleAsync(value => value.Year == year && value.Part == part);
+
+        user.RegistrationNumber = $"{part}/{year}/{sequence.NextNumber:D3}";
+
         await _dbContext.Users.AddAsync(user);
         await _dbContext.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     public async Task<User> GetByEmail(string email)
