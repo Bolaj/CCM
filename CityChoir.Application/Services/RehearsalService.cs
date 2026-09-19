@@ -89,6 +89,7 @@ public class RehearsalService : IRehearsalService
         {
             Name = rehearsalDto.Name,
             Description = rehearsalDto.Description,
+            Venue = rehearsalDto.Venue,
             Lat = rehearsalDto.Lat,
             Lng = rehearsalDto.Lng,
             RadiusMeters = rehearsalDto.RadiusMeters,
@@ -103,6 +104,7 @@ public class RehearsalService : IRehearsalService
         {
             Name = rehearsal.Name,
             Description = rehearsal.Description,
+            Venue = rehearsal.Venue,
             Lat = rehearsal.Lat,
             Lng = rehearsal.Lng,
             RadiusMeters = rehearsal.RadiusMeters,
@@ -122,6 +124,7 @@ public class RehearsalService : IRehearsalService
 
         existing.Name = rehearsalDto.Name;
         existing.Description = rehearsalDto.Description;
+        existing.Venue = rehearsalDto.Venue;
         existing.Lat = rehearsalDto.Lat;
         existing.Lng = rehearsalDto.Lng;
         existing.RadiusMeters = rehearsalDto.RadiusMeters;

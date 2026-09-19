@@ -62,7 +62,7 @@ public class RehearsalNotificationWorker : BackgroundService, IRehearsalNotifica
                 <li>When: {rehearsal.RehearsalDate:MMMM dd, yyyy}</li>
                 <li>Start: {rehearsal.StartTime:HH:mm}</li>
                 <li>End: {rehearsal.EndTime:HH:mm}</li>
-                <li>Location: {rehearsal.Lat}, {rehearsal.Lng} (radius {rehearsal.RadiusMeters} meters)</li>
+                <li>Venue: {rehearsal.Venue}</li>
             </ul>
         ";
     }

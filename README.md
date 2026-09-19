@@ -97,13 +97,16 @@ git clone https://github.com/Bolaj/CCM.git
 cd CCM
 ```
 
-2. Create a `.env` file in the root:
+2. Set these environment variables in the shell that starts the API (ASP.NET Core does not load a `.env` file by default):
 ```dotenv
 ConnectionStrings__DBConnectionString=Server=localhost;Database=citychoirapi;User=root;Password=yourpassword;
 Email__Username=youremail@outlook.com
-Email__Password=yourpassword
-Email__AuthenticationMethod=Password
+Email__FromEmail=youremail@outlook.com
+Email__AuthenticationMethod=OAuth2
+Email__AccessToken=your-oauth2-access-token
 ```
+
+Outlook.com SMTP requires Modern Auth. The API uses MailKit XOAUTH2 with port 587 and STARTTLS; it does not use the Microsoft account password directly. Set these values as process environment variables (or your local secret-management solution). A short-lived access token must include the `https://outlook.office.com/SMTP.Send` scope and will need to be refreshed when it expires. Never commit the token or account password to `appsettings.json`.
 
 3. Update `appsettings.json` with your JWT and email settings
 
