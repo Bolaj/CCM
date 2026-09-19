@@ -159,12 +159,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
-    var smtpConnected = await emailService.TestConnectionAsync();
+    var emailProviderReady = await emailService.TestConnectionAsync();
 
-    if (smtpConnected)
-        Console.WriteLine("SMTP startup check passed.");
+    if (emailProviderReady)
+        Console.WriteLine("Email provider startup check passed.");
     else
-        Console.WriteLine("SMTP startup check failed. Email delivery will be retried at send time.");
+        Console.WriteLine("Email provider startup check failed. Email delivery will be retried at send time.");
 }
 
 #region Middleware Pipeline

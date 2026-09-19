@@ -4,11 +4,14 @@ using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using MimeKit;
 using MailKit;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
 namespace CityChoir.Infrastructure.Services;
 
 public class EmailService : IEmailService
 {
+    private static readonly HttpClient HttpClient = new();
     private readonly IConfiguration _config;
 
     public EmailService(IConfiguration config)
@@ -20,22 +23,23 @@ public class EmailService : IEmailService
     {
         var emailSettings = _config.GetSection("Email");
 
+        if (IsResendConfigured(emailSettings))
+            return await TestResendConnectionAsync(emailSettings);
+
         var host = emailSettings["SmtpServer"];
         var port = int.Parse(emailSettings["SmtpPort"] ?? "587");
         var username = emailSettings["Username"];
-        var password = emailSettings["Password"];
         var enableSsl = bool.Parse(emailSettings["EnableSsl"] ?? "false");
 
-        if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(username))
+        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(username))
         {
-            Console.WriteLine("SMTP configuration is incomplete.");
+            Console.WriteLine("SMTP configuration is incomplete. Set Email:Username and Email:AccessToken.");
             return false;
         }
 
         try
         {
             using var smtp = new SmtpClient();
-            smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
 
             var secureOption = enableSsl
                 ? SecureSocketOptions.SslOnConnect
@@ -64,19 +68,24 @@ public class EmailService : IEmailService
     {
         var emailSettings = _config.GetSection("Email");
 
+        if (IsResendConfigured(emailSettings))
+        {
+            await SendWithResendAsync(emailSettings, to, subject, body);
+            return;
+        }
+
         var fromName = emailSettings["FromName"];
         var fromEmail = emailSettings["FromEmail"];
         var host = emailSettings["SmtpServer"];
         var port = int.Parse(emailSettings["SmtpPort"] ?? "587");
         var username = emailSettings["Username"];
-        var password = emailSettings["Password"];
         var enableSsl = bool.Parse(emailSettings["EnableSsl"] ?? "false");
 
-        if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(username))
-            throw new InvalidOperationException("Email configuration is incomplete.");
+        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(fromEmail))
+            throw new InvalidOperationException("Email configuration is incomplete. Set Email:Username and Email:FromEmail.");
 
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(fromName, fromEmail));
+        message.From.Add(new MailboxAddress(fromName, fromEmail!));
         message.To.Add(MailboxAddress.Parse(to));
         message.Subject = subject;
 
@@ -88,9 +97,6 @@ public class EmailService : IEmailService
         try
         {
             using var smtp = new SmtpClient();
-
-            //  DEV ONLY — remove in production when SSL is properly configured
-            smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
 
             var secureOption = enableSsl
                 ? SecureSocketOptions.SslOnConnect   // port 465
@@ -115,6 +121,60 @@ public class EmailService : IEmailService
         }
     }
 
+    private bool IsResendConfigured(IConfigurationSection emailSettings) =>
+        string.Equals(emailSettings["Provider"], "Resend", StringComparison.OrdinalIgnoreCase);
+
+    private Task<bool> TestResendConnectionAsync(IConfigurationSection emailSettings)
+    {
+        var apiKey = emailSettings["ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            Console.WriteLine("Resend configuration is incomplete. Set Email:ApiKey.");
+            return Task.FromResult(false);
+        }
+
+        Console.WriteLine("Resend sending configuration found. The API key will be validated when an email is sent.");
+        return Task.FromResult(true);
+    }
+
+    private async Task SendWithResendAsync(
+        IConfigurationSection emailSettings,
+        string to,
+        string subject,
+        string body)
+    {
+        var apiKey = emailSettings["ApiKey"];
+        var fromEmail = emailSettings["FromEmail"];
+        var fromName = emailSettings["FromName"];
+
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(fromEmail))
+            throw new InvalidOperationException("Resend configuration is incomplete. Set Email:ApiKey and Email:FromEmail.");
+
+        var from = string.IsNullOrWhiteSpace(fromName)
+            ? fromEmail
+            : $"{fromName} <{fromEmail}>";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Content = JsonContent.Create(new
+        {
+            from,
+            to = new[] { to },
+            subject,
+            html = body
+        });
+
+        using var response = await HttpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var responseBody = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"Resend rejected the email ({(int)response.StatusCode}): {responseBody}");
+        }
+
+        Console.WriteLine($"Email sent through Resend to {to}");
+    }
+
     private async Task AuthenticateAsync(SmtpClient smtp, IConfigurationSection emailSettings)
     {
         var authMethod = (emailSettings["AuthenticationMethod"] ?? "Password").Trim();
@@ -130,14 +190,14 @@ public class EmailService : IEmailService
                 if (string.IsNullOrWhiteSpace(accessToken))
                     throw new InvalidOperationException("OAuth2 access token is missing. Set Email:AccessToken or switch AuthenticationMethod to Password.");
 
-                await smtp.AuthenticateAsync(new SaslMechanismOAuth2(username, accessToken));
+                await smtp.AuthenticateAsync(new SaslMechanismOAuth2(username!, accessToken));
                 break;
 
             default:
                 if (string.IsNullOrWhiteSpace(password))
                     throw new InvalidOperationException("SMTP password is missing. Set Email:Password or switch AuthenticationMethod to OAuth2.");
 
-                await smtp.AuthenticateAsync(username, password);
+                await smtp.AuthenticateAsync(username!, password);
                 break;
         }
     }
