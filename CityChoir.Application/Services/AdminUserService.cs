@@ -74,8 +74,8 @@ public class AdminUserService : IAdminUserService
         if (user == null)
             return ApiResponse<string>.FailureResponse("User not found");
 
-        // soft delete — just flag or remove based on your preference
-        // for now hard delete via repo if you have it, or add a DeleteById method
-        return ApiResponse<string>.FailureResponse("Not implemented yet");
+        await _userRepository.Delete(user);
+
+        return ApiResponse<string>.SuccessResponse("User deleted successfully", id.ToString());
     }
 }
