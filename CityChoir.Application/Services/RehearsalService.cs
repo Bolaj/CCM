@@ -65,6 +65,7 @@ public class RehearsalService : IRehearsalService
                 Id = rehearsal.Id,
                 Name = rehearsal.Name,
                 Description = rehearsal.Description,
+                Venue = rehearsal.Venue,
                 Lat = rehearsal.Lat,
                 Lng = rehearsal.Lng,
                 RadiusMeters = rehearsal.RadiusMeters,
