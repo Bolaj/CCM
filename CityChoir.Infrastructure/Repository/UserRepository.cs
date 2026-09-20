@@ -60,6 +60,17 @@ public class UserRepository : IUserRepository
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
     }
+
+    public async Task Delete(User user)
+    {
+        var tokens = await _dbContext.EmailVerificationTokens
+            .Where(token => token.UserId == user.Id)
+            .ToListAsync();
+
+        _dbContext.EmailVerificationTokens.RemoveRange(tokens);
+        _dbContext.Users.Remove(user);
+        await _dbContext.SaveChangesAsync();
+    }
     
     public async Task<IEnumerable<User>> GetActiveMembers()
     {
