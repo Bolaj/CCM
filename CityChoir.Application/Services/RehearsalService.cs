@@ -21,19 +21,25 @@ public class RehearsalService : IRehearsalService
         _notificationQueue = notificationQueue;
     }
 
-    public async Task<ApiResponse<IEnumerable<Rehearsal>>> GetAll()
-{
-    var rehearsals = await _rehearsalRepository.GetAll();
-    return ApiResponse<IEnumerable<Rehearsal>>.SuccessResponse("Rehearsals fetched successfully", rehearsals);
-}
+    public async Task<ApiResponse<IEnumerable<RehearsalDto>>> GetAll()
+    {
+        var rehearsals = await _rehearsalRepository.GetAll();
+        var result = rehearsals.Select(ToDto);
 
-    public async Task<ApiResponse<Rehearsal?>> GetById(int id)
+        return ApiResponse<IEnumerable<RehearsalDto>>.SuccessResponse(
+            "Rehearsals fetched successfully",
+            result);
+    }
+
+    public async Task<ApiResponse<RehearsalDto?>> GetById(int id)
     {
         var rehearsal = await _rehearsalRepository.GetById(id);
         if (rehearsal == null)
-            return ApiResponse<Rehearsal?>.FailureResponse("Rehearsal not found");
+            return ApiResponse<RehearsalDto?>.FailureResponse("Rehearsal not found");
 
-        return ApiResponse<Rehearsal?>.SuccessResponse("Rehearsal fetched successfully", rehearsal);
+        return ApiResponse<RehearsalDto?>.SuccessResponse(
+            "Rehearsal fetched successfully",
+            ToDto(rehearsal));
     }
 
     public Task<ApiResponse<IEnumerable<UserRehearsalDto>>> GetUpcomingForUser(Guid userId)
@@ -151,5 +157,22 @@ public class RehearsalService : IRehearsalService
     public async Task<bool> Exists(int id)
     {
         return await _rehearsalRepository.Exists(id);
+    }
+
+    private static RehearsalDto ToDto(Rehearsal rehearsal)
+    {
+        return new RehearsalDto
+        {
+            Id = rehearsal.Id,
+            Name = rehearsal.Name,
+            Description = rehearsal.Description,
+            Venue = rehearsal.Venue,
+            Lat = rehearsal.Lat,
+            Lng = rehearsal.Lng,
+            RadiusMeters = rehearsal.RadiusMeters,
+            RehearsalDate = rehearsal.RehearsalDate,
+            StartTime = rehearsal.StartTime,
+            EndTime = rehearsal.EndTime
+        };
     }
 }
