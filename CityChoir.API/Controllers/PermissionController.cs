@@ -18,7 +18,7 @@ public class PermissionController : ControllerBase
         _permissionService = permissionService;
     }
 
-    [HttpPost]
+    
     [Authorize]
     [HttpPost]
     public async Task<IActionResult> RequestPermission([FromBody] CreatePermissionDto dto)
