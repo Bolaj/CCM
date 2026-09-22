@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users { get; set; }
     public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
+    public DbSet<EmailNotification> EmailNotifications { get; set; }
     public DbSet<Rehearsal> Rehearsals { get; set; }
     public DbSet<Permission> Permissions { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
@@ -40,6 +41,10 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<RegistrationSequence>()
             .HasKey(sequence => new { sequence.Year, sequence.Part });
+
+        modelBuilder.Entity<EmailNotification>()
+            .Property(notification => notification.Status)
+            .HasConversion<string>();
 
         // Permission
         modelBuilder.Entity<Permission>()

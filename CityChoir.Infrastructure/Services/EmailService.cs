@@ -118,6 +118,7 @@ public class EmailService : IEmailService
                 Console.WriteLine($"Inner: {ex.InnerException.Message}");
 
             LogFallbackEmail(to, subject, body);
+            throw;
         }
     }
 
