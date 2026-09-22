@@ -62,23 +62,27 @@ public class RehearsalService : IRehearsalService
             .ToDictionary(attendance => attendance.RehearsalId);
 
         var selected = rehearsals
-            .Where(rehearsal => upcoming
-                ? rehearsal.StartTime > now
-                : rehearsal.EndTime <= now)
-            .OrderBy(rehearsal => upcoming ? rehearsal.StartTime : rehearsal.EndTime)
-            .Select(rehearsal => new UserRehearsalDto
+            .Select(rehearsal => new
             {
-                Id = rehearsal.Id,
-                Name = rehearsal.Name,
-                Description = rehearsal.Description,
-                Venue = rehearsal.Venue,
-                Lat = rehearsal.Lat,
-                Lng = rehearsal.Lng,
-                RadiusMeters = rehearsal.RadiusMeters,
-                RehearsalDate = rehearsal.RehearsalDate,
-                StartTime = rehearsal.StartTime,
-                EndTime = rehearsal.EndTime,
-                HasAttended = attendances.TryGetValue(rehearsal.Id, out var attendance)
+                Rehearsal = rehearsal,
+                Start = RehearsalSchedule.GetStart(rehearsal),
+                End = RehearsalSchedule.GetEnd(rehearsal)
+            })
+            .Where(item => upcoming ? item.Start > now : item.End <= now)
+            .OrderBy(item => upcoming ? item.Start : item.End)
+            .Select(item => new UserRehearsalDto
+            {
+                Id = item.Rehearsal.Id,
+                Name = item.Rehearsal.Name,
+                Description = item.Rehearsal.Description,
+                Venue = item.Rehearsal.Venue,
+                Lat = item.Rehearsal.Lat,
+                Lng = item.Rehearsal.Lng,
+                RadiusMeters = item.Rehearsal.RadiusMeters,
+                RehearsalDate = item.Rehearsal.RehearsalDate,
+                StartTime = item.Rehearsal.StartTime,
+                EndTime = item.Rehearsal.EndTime,
+                HasAttended = attendances.TryGetValue(item.Rehearsal.Id, out var attendance)
                     && attendance.IsPresent,
                 AttendedAt = attendance?.MarkedAt
             });
