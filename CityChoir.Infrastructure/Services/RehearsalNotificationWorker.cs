@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using CityChoir.Application.DTOs.Common;
 using CityChoir.Application.DTOs.Rehearsal;
 using CityChoir.Application.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,12 +33,14 @@ public class RehearsalNotificationWorker : BackgroundService, IRehearsalNotifica
             {
                 using var scope = _scopeFactory.CreateScope();
                 var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-                var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+                var emailQueue = scope.ServiceProvider.GetRequiredService<IEmailNotificationQueue>();
                 var members = await userRepository.GetActiveMembers();
-                var emailTasks = members.Select(member => emailService.SendEmailAsync(
-                    member.Email,
-                    "New rehearsal scheduled",
-                    BuildEmailBody(rehearsal)));
+                var emailTasks = members.Select(member => emailQueue.EnqueueAsync(new EmailNotificationDto
+                {
+                    To = member.Email,
+                    Subject = "New rehearsal scheduled",
+                    Body = BuildEmailBody(rehearsal)
+                }).AsTask());
 
                 await Task.WhenAll(emailTasks);
             }
